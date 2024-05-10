@@ -18,3 +18,8 @@ try:
 except:
     pass
 
+try:
+    import camino
+    from .ecalHalCamino import ECalHalCamino
+except:
+    pass

@@ -1,4 +1,5 @@
 from ecalControl import ECalHalFtdi
+from ecalControl import ECalHalCamino
 from ecalControl import ECalControlSk
 from ecalControl import ECalStandardSk
 from ecalControl import CorrectionSetScope as scope
@@ -8,12 +9,18 @@ import time
 
 try:
     #hal = ECalHalFtdi(ECalHalFtdi.getValidFT2232PortPairs()[0])
-    ecal = ECalControlSk(ECalHalFtdi(ECalHalFtdi.getValidFT2232PortPairs()[0]))
+    hal = ECalHalCamino("COM5")
+
+    ecal = ECalControlSk(hal)
+
+
+    #std = ecal.correctionSets[scope.PORT_A][0x8003]
+    #std.fetchDataFromEEPROM()
 
     t0 = time.time()
     std : ECalStandardSk
 
-    """
+    
     csk : scope
     for csk in ecal.correctionSets:
         cs = ecal.correctionSets[csk]
@@ -24,12 +31,12 @@ try:
             std.fetchDataFromEEPROM()
             std.saveDataToTouchstoneFile()
     
-    """
-    """
-    std = ecal.correctionSets[scope.PORT_A][0x4003]
-    std.fetchDataFromEEPROM()
-    std.saveDataToTouchstoneFile()
-    """
+    
+    
+    #std = ecal.correctionSets[scope.VERIFY_AB][0x0200]
+    #std.fetchDataFromEEPROM()
+    #std.saveDataToTouchstoneFile()
+    
 
     #next(iter(ecal.correctionSets[scope.PORT_A])).activate()
 

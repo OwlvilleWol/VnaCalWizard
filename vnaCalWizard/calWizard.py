@@ -9,7 +9,7 @@ from typing import List
 
 class VnaCalWizard():
 
-    def __init__(self, vna : CalableVna, ecal : ECalControlSk) -> None:
+    def __init__(self, vna : CalableVna, ecal : ECalControlSk | List[ECalControlSk]) -> None:
         
         self._vna = vna
         self._ecal = ecal

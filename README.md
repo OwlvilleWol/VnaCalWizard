@@ -22,13 +22,16 @@ Staffan’s [writeup in PDF](<https://groups.io/g/HP-Agilent-Keysight-equipment/
   **8506x,8509x** (B/C rev, A?)  
   **N4431A, N446x** - maybe - per the 85097B manual yes, but I’m yet to try one for compatibility
 - #### ECal control adapter and power supplies
-  See examples later in this document. Control code can be modified to support other interfaces.
+  See examples below in this document. Control code can be modified to support other interfaces.
 - #### Some basic Python knowledge
   Until someone makes a UI
 - #### Library dependencies
-  TBD
+  Use the included environment.yaml to create (or update) a conda environment with the necessary dependencies  
+  E.g. [Importing an environment in Anaconda Navigator](https://docs.anaconda.com/free/navigator/tutorials/manage-environments/#importing-an-environment)  
+  Or [Create a conda environment from an environment file](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file)
 
 ## ECal Control Hardware Examples  
+
 In this section easy to build examples are presented to connect the ECal module to your PC.
 - #### What these don’t do (that they maybe should)
   - Isolate USB ground
@@ -82,7 +85,19 @@ From prior work it is unclear which of the possible four power rails are necessa
 - [Mean Well HDR-15-5 5V 15W DIN rail mount PSU](https://a.co/d/fFkN42M)
 - [Mean Well HDR-15-12 12V 15W DIN rail mount PSU](https://a.co/d/1o75U8v)  (In reverse for -12V.)
 
+#### Some useful bits
+- [19" rack mount DIN rail](https://a.co/d/4dqd6Ua)
+- [DIN rail mount D-Sub 25-pin breakout](https://a.co/d/iRbiehm)
+- [D-Sub 25-pin M-F extension cable](https://a.co/d/7ids5xi)
+- [D-Sub 25-pin M-M cable](https://a.co/d/go0Y7ex)
 
+## Library overview
+
+TBD
+
+## Getting started with the code
+
+TBD
 
 
 

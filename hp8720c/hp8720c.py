@@ -2,10 +2,11 @@ import skrf as rf
 import skrf.vi.vna as skvna
 import skrf.vi.validators as skvalid
 import numpy as np
-import typing
+from typing import List,Any,Literal, Callable
 from enum import Enum
+from . import CalableVna
 
-class HP8720C(skvna.VNA):
+class HP8720C(skvna.VNA, CalableVna):
 
     _scpi = False
     _supported_npoints = [3 ,11 , 32, 51, 101, 201, 401, 801, 1601]
@@ -13,7 +14,7 @@ class HP8720C(skvna.VNA):
 
     #List of error coefficient keys as used by the skrf 12term calibration dictionary,
     #in the order as returned/requested by the 8720C
-    _coefs_list_12term : typing.List[str] = [
+    _coefs_list_12term : List[str] = [
         'forward directivity',
         'forward source match',
         'forward reflection tracking',
@@ -28,7 +29,7 @@ class HP8720C(skvna.VNA):
         'reverse transmission tracking'
         ]
     
-    _coefs_list_3term: typing.List[str] = [
+    _coefs_list_3term: List[str] = [
         'directivity',
         'source match',
         'reflection tracking',
@@ -53,7 +54,7 @@ class HP8720C(skvna.VNA):
             self.setvalidator = skvalid.SetValidator(set)
             self.floatvalidator = skvalid.FloatValidator() 
            
-        def validate_input(self, arg) -> typing.Any:
+        def validate_input(self, arg) -> Any:
             arg = self.floatvalidator.validate_input(arg)
             return self.setvalidator.validate_input(arg)
 
@@ -188,7 +189,7 @@ class HP8720C(skvna.VNA):
         doc="""Retrieve the value of the Event Status Register (ESR)""",
     )
 
-    def __init__(self, address: str, backend='@py', reset: bool = True) -> None:
+    def __init__(self, address: str, backend : str | Literal["@ivi", "@py"] ='@ivi', reset: bool = False) -> None:
         super().__init__(address, backend)
 
         self._resource.timeout = 2_000
@@ -201,6 +202,11 @@ class HP8720C(skvna.VNA):
 
         if reset:
             self.reset()
+
+
+    @property
+    def operatorPrompt(self) -> None | Callable[[str, dict[str, str]],str]:
+        return None
 
     @property
     def frequency(self) -> rf.Frequency:

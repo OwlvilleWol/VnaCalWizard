@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import skrf as rf
+from typing import Callable
 
 
 class CalableVna(ABC):
@@ -32,4 +33,9 @@ class CalableVna(ABC):
     @correction_on.setter
     @abstractmethod
     def correction_on(self, arg: bool):
+        pass
+
+    @property
+    @abstractmethod
+    def operatorPrompt(self) -> None | Callable[[str, dict[str, str]],str]:
         pass

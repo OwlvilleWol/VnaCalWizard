@@ -7,9 +7,6 @@ baud = 115200
 
 connection = camino.SerialConnection(serialPort, baud)
 arduino = camino.Arduino(connection)
-    
-
-#print(arduino.callables)
 
 addr : int = 225
 

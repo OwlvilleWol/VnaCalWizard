@@ -1,8 +1,9 @@
+from .abstract import *
 from .ecalHalBase import ECalHal
 from .ecalControlBase import ECalControl
 from .ecalCorrectionSetBase import ECalCorrectionSet
 from .ecalStandardBase import ECalStandard
-from .abstract import *
+
 
 try:
     import skrf

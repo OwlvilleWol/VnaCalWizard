@@ -1,10 +1,10 @@
-from .abstract import EcalHalAbc
+from .abstract import ECalHalAbc
 from .abstract import CorrectionSetScope
 from .ecalCorrectionSetSkrf import ECalCorrectionSetSk
 from .ecalControlBase import ECalControl
 
 class ECalControlSk(ECalControl):
-    def __init__(self, hal: EcalHalAbc):
+    def __init__(self, hal: ECalHalAbc):
         super().__init__(hal)
 
 

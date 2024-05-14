@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import numpy as np
 import skrf as rf
 from typing import Callable
 
@@ -37,5 +36,5 @@ class CalableVna(ABC):
 
     @property
     @abstractmethod
-    def operatorPrompt(self) -> None | Callable[[str, dict[str, str]],str]:
+    def operatorPrompt(self) -> None | Callable[[str, dict[int, tuple[str, str]]] ,str]:
         pass

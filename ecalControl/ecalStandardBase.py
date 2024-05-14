@@ -1,4 +1,4 @@
-from .abstract import EcalHalAbc
+from .abstract import ECalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
 from .abstract import ECalStandardAbc

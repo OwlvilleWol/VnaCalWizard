@@ -22,7 +22,7 @@ class Port:
     gender: "ConnectorGender"
 
 
-class EcalHalAbc(ABC):
+class ECalHalAbc(ABC):
 
     _MUX_ADDR_FLASH_ADDR_0_7 = 2
     _MUX_ADDR_FLASH_ADDR_8_15 = 3
@@ -65,7 +65,7 @@ class ECalControlAbc(ABC):
 
 
     @abstractmethod
-    def __init__(self, hal: EcalHalAbc) -> None:
+    def __init__(self, hal: ECalHalAbc) -> None:
         pass
 
     @property

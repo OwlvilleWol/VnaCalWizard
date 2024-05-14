@@ -1,4 +1,4 @@
-from .calableVna import CalableVna
+from . import CalableVna
 from ecalControl import ECalControlSk
 from ecalControl import ECalStandardSk
 from ecalControl import CorrectionSetScope as scope

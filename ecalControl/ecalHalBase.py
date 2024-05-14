@@ -1,7 +1,7 @@
-from . import EcalHalAbc
+from . import ECalHalAbc
 
 
-class ECalHal(EcalHalAbc):
+class ECalHal(ECalHalAbc):
 
     def __init__(self) -> None:
         pass 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import re
 from pathlib import Path
 
-from .abstract import EcalHalAbc
+from .abstract import ECalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
 from .abstract import ConnectorGender
@@ -19,7 +19,7 @@ from .ecalCorrectionSetBase import ECalCorrectionSet
 
 class ECalControl(ECalControlAbc):
 
-    def __init__(self, hal: EcalHalAbc):
+    def __init__(self, hal: ECalHalAbc):
         self.hal = hal
 
         self._numPoints = 0
@@ -48,8 +48,8 @@ class ECalControl(ECalControlAbc):
         return self._frequencyList
 
     def setGates(self, value: int) -> None:
-        self.hal._writeByte(EcalHalAbc._MUX_ADDR_GATES_1_8, value & 0x00ff)
-        self.hal._writeByte(EcalHalAbc._MUX_ADDR_GATES_9_16, (value & 0xff00) >> 8)
+        self.hal._writeByte(ECalHalAbc._MUX_ADDR_GATES_1_8, value & 0x00ff)
+        self.hal._writeByte(ECalHalAbc._MUX_ADDR_GATES_9_16, (value & 0xff00) >> 8)
 
     def isolate(self) -> None:
         self.setGates(0xffff)

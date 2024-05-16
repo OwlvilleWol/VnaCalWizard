@@ -11,7 +11,7 @@ vna.npoints = 201
 
 
 if (vna.operatorPrompt != None):
-    print(vna.operatorPrompt("Have you connected the ECal yet you halfwit?", {1 : ("Yes","y"), 2: ("No", "n"), 8: ("Abort", "a")}))
+    print(vna.operatorPrompt("Have you connected the ECal yet you halfwit?", [("Yes","y"),("No", "n"),None, None, None, None, None,("Abort", "a")]))
 
 
 

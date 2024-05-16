@@ -323,8 +323,7 @@ class HP8720C(skvna.VNA, CalableVna, HpglUi):
 
 
     @property
-    def calibration(self) -> rf.Calibration:
-        """The currently defined calibration as a :class:`skrf.calibration.calibration.Calibration`"""
+    def calibration(self) -> None | rf.Calibration:
         
         cm = self.cal_method
         cal_dict = {}
@@ -432,20 +431,26 @@ class HP8720C(skvna.VNA, CalableVna, HpglUi):
         
     
     @property
-    def operatorPrompt(self) -> None | Callable[[str, dict[int, tuple[str, str]]] ,str]:
+    def operatorPrompt(self) -> None | Callable[[str, List[tuple[str, str, List[str] | None] | None]] ,str]:
         if self._hpglResource == None:
             return None
         else:
             return lambda prompt,options: self._operatorPrompt(prompt, options) 
     
 
-    def _operatorPrompt(self, prompt : str, options : dict[int, tuple[str, str]]) -> str:
+    def _operatorPrompt(self, prompt : str, options : List[tuple[str, str, List[str] | None] | None]) -> str:
         self.write("MENUOFF")
         self._hpglPrintLabel(prompt, 2500, 3400, 7, align="center")
 
-        for option in options:
-            buttonText = options[option][0]
-            self._hpglPrintMenuItem(buttonText, option) 
+        if len(options > 8):
+            raise Exception("VNA can only display 8 options.")
+
+        for i in range(len(options)):
+            option = options[i]
+            if option == None:
+                continue
+            else:
+                self._hpglPrintMenuItem(option[0], i+1) 
         
         while True:
             keyPress = self._waitForKeypress()
@@ -453,7 +458,10 @@ class HP8720C(skvna.VNA, CalableVna, HpglUi):
                 self._hpglCls()
                 self._hpglInstrumentScreenOn(True)
                 return None
-            if keyPress in options: 
+            try:
+                selection = options[keyPress-1][1]
                 self._hpglCls()
                 self._hpglInstrumentScreenOn(True)
-                return options[keyPress][1]
+                return selection
+            except:
+                continue

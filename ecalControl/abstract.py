@@ -11,9 +11,14 @@ class CorrectionSetScope(Enum):
     THRU_AB = 3
     VERIFY_AB = 4
 
+class ECalPort(Enum):
+    A = CorrectionSetScope.PORT_A
+    B = CorrectionSetScope.PORT_B
+
 class ConnectorGender(Enum):
     MALE = 0
     FEMALE = 1
+    GENDERLESS = 2
 
 @dataclass
 class Port:

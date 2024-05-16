@@ -3,6 +3,7 @@ from .ecalHalBase import ECalHal
 from .ecalControlBase import ECalControl
 from .ecalCorrectionSetBase import ECalCorrectionSet
 from .ecalStandardBase import ECalStandard
+from .rfAdapter import RfAdapter
 
 
 try:

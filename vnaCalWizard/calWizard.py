@@ -11,124 +11,282 @@ import numpy as np
 from ecalControl import RfAdapter
 
 
+class FrequencyEx(Frequency):
+
+    class FrequencyExNonContiguousResultException(Exception): ...
+    class FrequencyExEmptyResultException(Exception): ...
+    class FrequencyExIncompleteCoverageException(Exception): ...
+    class FrequencyExRequestedSubsetExtendsBeyondMeasurementRangeException(Exception): ...
+
+    def __init__(self, start: float = 0, stop: float = 0, npoints: int = 0, unit: str = None, sweep_type: str = 'lin') -> None:
+        super().__init__(start, stop, npoints, unit, sweep_type)
+            
+    def isDisjointFrom(self, other: Frequency) -> bool:
+        return (self.start > other.stop) | (self.stop < other.start)
+
+    def isSubsetOf(self, other : Frequency) -> bool:
+        return (self.start >= other.start) & (self.stop <= other.stop)
+
+    def isSupersetOf(self, other : Frequency) -> bool:
+        return (self.start <= other.start) & (self.stop >= other.stop)
+
+    def copy(self) -> 'FrequencyEx':
+        f = FrequencyEx.from_f(self.f)
+        f.unit = self.unit
+        return f
+
+    def toEx(freq : Frequency) -> 'FrequencyEx':
+        if freq == None:
+            return FrequencyEx.empty()
+        fex = FrequencyEx.from_f(freq.f)
+        fex.unit = freq.unit
+        return fex
+
+
+    def copyFromStartTo(self, frequency: float, includeF: bool = True) -> 'FrequencyEx':
+        for i in range(self.npoints):
+            if includeF & (self.f[i] <= frequency) : continue
+            elif (not includeF) & (self.f[i] < frequency) : continue
+            else:
+                f = FrequencyEx.from_f(self.f[:i])
+                f.unit = self.unit
+                return f    
+            
+        return self.copy()
+
+
+    def copyToEndFrom(self, frequency: float, includeF: bool = True) -> 'FrequencyEx':
+        for i in range(self.npoints):
+            if includeF & (self.f[i] < frequency): continue
+            elif (not includeF) & (self.f[i] <= frequency): continue
+            else:
+                f = FrequencyEx.from_f(self.f[i:])
+                f.unit = self.unit
+                return f    
+            
+        return FrequencyEx.empty()
+
+
+    def _or(a: 'FrequencyEx', b: 'FrequencyEx') -> 'FrequencyEx':
+        if a.isDisjointFrom(b): return a.copy()
+        if a.isSupersetOf(b): return a.copy()
+        if a.isSubsetOf(b): return b.copy()
+        
+        if a.stop < b.stop:
+            b = b.copyToEndFrom(a.stop)
+            f = FrequencyEx.from_f(np.concatenate([a.f,b.f]))
+            f.unit = a.unit
+            return f
+        
+        if a.start > b.start:
+            b = b.copyFromStartTo(a.start)
+            f = FrequencyEx.from_f(b.f + a.f)
+            f.unit = a.unit
+            return f
+
+    def _sub(a: 'FrequencyEx', b: 'FrequencyEx') -> 'FrequencyEx':
+        if a.isDisjointFrom(b): return FrequencyEx.empty()
+        if a.isSubsetOf(b): return FrequencyEx.empty()
+        if a.isSupersetOf(b): 
+            if a.start == b.start:
+                return a.copyToEndFrom(b.stop)
+            elif a.stop == b.stop:
+                return a.copyFromStartTo(b.start)
+            else:
+                raise FrequencyEx.FrequencyExNonContiguousResultException()
+        
+        if a.stop < b.stop:
+            return a.copyFromStartTo(b.start)
+        
+        if a.stop > b.stop:
+            return a.copyToEndFrom(b.stop)
+
+    def _and(a: 'FrequencyEx', b: 'FrequencyEx') -> 'FrequencyEx':
+        if a.isDisjointFrom(b): return FrequencyEx.empty()
+        if a.isSubsetOf(b): return a.copy()
+        if a.isSupersetOf(b): return b.copy()
+
+        if a.start < b.start:
+            return a.copyToEndFrom(b.start)
+        if a.stop > b.stop:
+            return a.copyFromStartTo(b.stop)
+
+
+    def split(self, f_split: float, fIsIn: Literal['low', 'high', 'both'] = 'both') -> Tuple['FrequencyEx', 'FrequencyEx']:
+        '''Splits a Frequency object at a given frequency and returns the two parts
+        In case the split falls exactly on a freqency point fIsIn dectermines which side that point is added to
+        '''
+        fLo = self.copyFromStartTo(f_split, (fIsIn == 'low') | (fIsIn == 'both'))
+        fHi = self.copyToEndFrom(f_split, (fIsIn == 'high') | (fIsIn == 'both'))
+
+        return (fLo,fHi)
+
+
+    def coercing(self, single_f: float) -> float:
+        if self.isEmpty: return 0
+        
+        if single_f > self.stop: return self.stop
+        elif single_f < self.start: return self.start
+        else: return single_f
+
+    def empty():
+        return FrequencyEx.from_f([])
+
+    def __or__(self, other : Frequency) -> 'FrequencyEx':
+        other = FrequencyEx.toEx(other)
+        return FrequencyEx._or(self,other)
+
+    def __ror__(self, other : Frequency) -> 'FrequencyEx':
+        other = FrequencyEx.toEx(other)
+        return FrequencyEx._or(other,self)
+    
+    def __sub__(self, other : Frequency) -> 'FrequencyEx':
+        other = FrequencyEx.toEx(other)
+        return FrequencyEx._sub(self,other)
+
+    def __rsub__(self, other : Frequency) -> 'FrequencyEx':
+        other = FrequencyEx.toEx(other)
+        return FrequencyEx._sub(other,self)
+
+    def __and__(self, other : Frequency | List[Frequency]) -> 'FrequencyEx':
+        if isinstance(other, Frequency):
+            other = FrequencyEx.toEx(other)
+            return FrequencyEx._and(self, other)
+        if isinstance(other, List):
+            first : FrequencyEx = self.copy()
+            for second in other:
+                first = first & second
+            return first
+
+    def __rand__(self, other : Frequency) -> 'FrequencyEx':
+        other = FrequencyEx.toEx(other)
+        return FrequencyEx._and(other,self)
+    
+    def __contains__(self, other : Frequency | float) -> bool:
+        if isinstance(other, float):
+            other = FrequencyEx.from_f([other])
+        else:
+            other = FrequencyEx.toEx(other)
+        return self.isSupersetOf(other)
+
+    @property
+    def isEmpty(self) -> bool:
+        return len(self.f) == 0
+
+
+
 class ECalFreqCrossover:
-    def __init__(self, crossoverFreq : float | Literal["center", "preferLo", "preferHi"] = "center", preferSingle : Literal[False, "onlyLo", "onlyHi", "hiOverLo", "loOverHi"] = "hiOverLo", softLimits : rf.Frequency = None) -> None:
+    def __init__(self, 
+                 crossoverFreq : float | Literal["center", "preferLo", "preferHi"] = "center", 
+                 preferSingle : Literal[False, "onlyLo", "onlyHi", "hiOverLo", "loOverHi"] = "hiOverLo", 
+                 softLimits : rf.Frequency = None
+                 ) -> None:
+        
         self._crossoverFreq = crossoverFreq
         self._preferSingle = preferSingle
         self._softLimits = softLimits
-
-    def _frequencyOverlap(ranges: List[Frequency]) -> None | rf.Frequency:
-        
-        if len(ranges) == 0: return None
-        elif len(ranges) == 1: return ranges[0]
-        elif len(ranges) == 2: 
-            a = ranges[0]
-            b = ranges[1]
-            if a == None:
-                return None
-            if (a.start > b.stop) | (b.start > a.stop):
-                return None
-            else:
-                return Frequency(max(a.start, b.start), min(a.stop, b.stop))
-        else:
-            c = ECalFreqCrossover._frequencyOverlap(ranges[0:1])
-            return ECalFreqCrossover._frequencyOverlap([c] + ranges[2:])
     
-    def _splitAtF(f_range : Frequency, f_split: float) -> Tuple[Frequency, Frequency]:
-        if f_split < f_range.start:
-            return (None, f_range)
-        elif f_split > f_range.stop:
-            return (f_range, None)
-        else:
-            for i in range(f_range.npoints):
-                if f_split >= f_range.f[i]:
-                    return (Frequency.from_f(f_range.f[0:i]), Frequency.from_f(f_range[i:]))
 
+    def splitFrequencyRange(self, 
+                            measuredFreq : Frequency, 
+                            ecalLowFreq : Frequency, 
+                            ecalHiFreq : Frequency,
+                            allowIncomplete : bool = False
+                            ) -> tuple[FrequencyEx, FrequencyEx]:
+        '''Splits the measured frequency range based on the ranges of the low and high ecal modules and rules defined in class.'''
 
-    def splitFrequencyRange(self, measuredFreq : rf.Frequency, ecalLowFreq : rf.Frequency, ecalHiFreq : rf.Frequency) -> tuple[rf.Frequency, rf.Frequency]:
-        
+        measuredFreq : FrequencyEx = FrequencyEx.toEx(measuredFreq)
+        ecalLowFreq : FrequencyEx = FrequencyEx.toEx(ecalLowFreq)
+        ecalHiFreq : FrequencyEx = FrequencyEx.toEx(ecalHiFreq)
 
-        if ecalLowFreq == None & ecalHiFreq == None:
-            return (None, None)
-        elif ecalLowFreq == None:
-            if (measuredFreq.start >= ecalHiFreq.start) & (measuredFreq.stop <= ecalHiFreq.stop):
-                return (None, ecalHiFreq)
+    
+        if ecalLowFreq.isEmpty:
+            if measuredFreq.isSubsetOf(ecalHiFreq):
+                return (FrequencyEx.empty(), measuredFreq)
             else:
-                return (None, None)
-        elif ecalHiFreq == None:
-            if (measuredFreq.start >= ecalLowFreq.start) & (measuredFreq.stop <= ecalLowFreq.stop):
-                return (ecalLowFreq ,None)
+                if allowIncomplete:
+                    return (FrequencyEx.empty(), measuredFreq & ecalHiFreq)
+                else:
+                    raise FrequencyEx.FrequencyExIncompleteCoverageException()
+
+        if ecalHiFreq.isEmpty:
+            if measuredFreq.isSubsetOf(ecalLowFreq):
+                return (measuredFreq, FrequencyEx.empty())
             else:
-                return (None, None)
+                if allowIncomplete:
+                    return (measuredFreq & ecalLowFreq, FrequencyEx.empty())
+                else:
+                    raise FrequencyEx.FrequencyExIncompleteCoverageException()
 
+        if not measuredFreq.isSubsetOf(ecalLowFreq | ecalHiFreq):
+            if ecalLowFreq.isDisjointFrom(ecalHiFreq):
+                raise FrequencyEx.FrequencyExNonContiguousResultException()
+            if not allowIncomplete:
+                raise FrequencyEx.FrequencyExIncompleteCoverageException() 
 
-        softLimits : Frequency
-        if self._softLimits != None:
-            softLimits = self._softLimits
-        else:
-            softLimits = Frequency(ecalHiFreq.start, ecalLowFreq.stop)
+        softLimits : FrequencyEx = FrequencyEx.toEx(self._softLimits)
+        if softLimits.isEmpty:
+            softLimits = FrequencyEx.from_f([ecalHiFreq.start, ecalLowFreq.stop])
 
         crossoverFreq: float
         if isinstance(self._crossoverFreq, float): 
             crossoverFreq = self._crossoverFreq
         elif self._crossoverFreq == "center":
-            overlap : Frequency
-            if (overlap := ECalFreqCrossover._frequencyOverlap(measuredFreq, ecalLowFreq, ecalHiFreq)) == None:
+            overlap : FrequencyEx = measuredFreq & [ecalLowFreq, ecalHiFreq]
+            if overlap.isEmpty:
                 crossoverFreq = ecalHiFreq.start
             else:
-                crossoverFreq = overlap.center
-                crossoverFreq = max(crossoverFreq, softLimits.start)
-                crossoverFreq = min(crossoverFreq, softLimits.stop)
+                crossoverFreq = softLimits.coercing(overlap.center)
         elif self._crossoverFreq == "preferLo":
             crossoverFreq = ecalLowFreq.stop
         elif self._crossoverFreq == "preferHi":
             crossoverFreq = ecalHiFreq.start
 
-        allCovered = True
-        allCoveredByLoBelowSoftLimit = True
-        allCoveredByHiAboveSoftLimit = True
-        allCoveredByLoBelowCrossover = True
-        allCoveredByHiAboveCrossover = True
+        allSingleFCovered = True
+        allSingleFCoveredByLoBelowSoftLimit = True
+        allSingleFCoveredByHiAboveSoftLimit = True
+        allSingleFCoveredByLoBelowCrossover = True
+        allSingleFCoveredByHiAboveCrossover = True
         for f in measuredFreq.f:
-            if not ((f >= ecalLowFreq.start & f <= ecalLowFreq.stop) | (f >= ecalHiFreq.start & f <= ecalHiFreq.stop)):
-                allCovered = False
+            if not ((f in ecalLowFreq) | (f in ecalHiFreq)):
+                allSingleFCovered = False
             if f > softLimits.stop:
-                allCoveredByLoBelowSoftLimit = False
+                allSingleFCoveredByLoBelowSoftLimit = False
             if f < softLimits.start:
-                allCoveredByHiAboveSoftLimit = False
-            if f > ecalLowFreq.stop | f > crossoverFreq:
-                allCoveredByLoBelowCrossover = False
-            if f < ecalHiFreq.start | f < crossoverFreq:
-                allCoveredByHiAboveCrossover = False 
+                allSingleFCoveredByHiAboveSoftLimit = False
+            if (f > ecalLowFreq.stop) | (f > crossoverFreq):
+                allSingleFCoveredByLoBelowCrossover = False
+            if (f < ecalHiFreq.start) | (f < crossoverFreq):
+                allSingleFCoveredByHiAboveCrossover = False 
 
-        if not allCovered:
+        if not allSingleFCovered:
             #unable to cover measured frequency range
-            return (None, None)
+            if not allowIncomplete:
+                raise FrequencyEx.FrequencyExIncompleteCoverageException()
 
         if self._preferSingle == False:
             #always use both ECals split by crossoverFreq 
-            if allCoveredByLoBelowCrossover:
-                return (measuredFreq, None)
-            elif allCoveredByHiAboveCrossover:
-                return (None, measuredFreq)
+            if allSingleFCoveredByLoBelowCrossover:
+                return (measuredFreq, FrequencyEx.empty())
+            elif allSingleFCoveredByHiAboveCrossover:
+                return (FrequencyEx.empty(), measuredFreq)
             else:
-                return ECalFreqCrossover._splitAtF(measuredFreq, crossoverFreq)
+                return measuredFreq.split(crossoverFreq, 'low')
 
         else:
-            if allCoveredByLoBelowSoftLimit & (not allCoveredByHiAboveSoftLimit):
+            if allSingleFCoveredByLoBelowSoftLimit & (not allSingleFCoveredByHiAboveSoftLimit):
                 if self._preferSingle != "onlyHi":
-                    return (measuredFreq, None)
-            elif (not allCoveredByLoBelowSoftLimit) & allCoveredByHiAboveSoftLimit:
+                    return (measuredFreq, FrequencyEx.empty())
+            elif (not allSingleFCoveredByLoBelowSoftLimit) & allSingleFCoveredByHiAboveSoftLimit:
                 if self._preferSingle != "onlyLo":
-                    return (None, measuredFreq)
-            elif allCoveredByHiAboveSoftLimit & allCoveredByLoBelowSoftLimit:
+                    return (FrequencyEx.empty(), measuredFreq)
+            elif allSingleFCoveredByHiAboveSoftLimit & allSingleFCoveredByLoBelowSoftLimit:
                 if self._preferSingle == "loOverHi" | self._preferSingle == "onlyLo":
-                    return (measuredFreq, None) 
+                    return (measuredFreq, FrequencyEx.empty()) 
                 elif self._preferSingle == "hiOverLo" | self._preferSingle == "onlyHi":
-                    return (None, measuredFreq)
+                    return (FrequencyEx.empty(), measuredFreq)
             else:
-                return ECalFreqCrossover._splitAtF(measuredFreq, crossoverFreq)
-
+                return measuredFreq.split(crossoverFreq, 'low')
 
 
 
@@ -173,7 +331,6 @@ class VnaCalWizard():
                     return option[1]
      
 
-
     def _collectDataOnePort(self, 
                             vnaPort : int, 
                             ecal : ECalControlSk, 
@@ -188,10 +345,11 @@ class VnaCalWizard():
         self._vna.correction_on = isCorrected
         
         #check if frequency subset argument is wihtin the vna frequency span
-        f: Frequency = self._vna.frequency
-        if fSubset != None:
-            if fSubset.start < f.start | fSubset.stop > f.stop:
-                raise Exception("Requested frequency subset is outside of currently set measurement range.") 
+        f: FrequencyEx = FrequencyEx.toEx(self._vna.frequency)
+        fSubset = FrequencyEx.toEx(fSubset)
+        if not fSubset.isEmpty:
+            if not f.isSupersetOf(fSubset):
+                raise FrequencyEx.FrequencyExRequestedSubsetExtendsBeyondMeasurementRangeException() 
             else:
                 f = fSubset
 
@@ -235,10 +393,11 @@ class VnaCalWizard():
         self._vna.correction_on = isCorrected
 
         #check if frequency subset argument is wihtin the vna frequency span
-        f: Frequency = self._vna.frequency
-        if fSubset != None:
-            if fSubset.start < f.start | fSubset.stop > f.stop:
-                raise Exception("Requested frequency subset is outside of currently set measurement range.") 
+        f: FrequencyEx = FrequencyEx.toEx(self._vna.frequency)
+        fSubset = FrequencyEx.toEx(fSubset)
+        if not fSubset.isEmpty:
+            if not f.isSupersetOf(fSubset):
+                raise FrequencyEx.FrequencyExRequestedSubsetExtendsBeyondMeasurementRangeException() 
             else:
                 f = fSubset
 

@@ -1,25 +1,23 @@
 
-import time
 import struct
-import random
-from enum import Enum
 from dataclasses import dataclass
 import re
 from pathlib import Path
+from typing import List
 
-from .abstract import EcalHalAbc
+from .abstract import ECalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
 from .abstract import ConnectorGender
 from .abstract import CorrectionSetScope
-from .abstract import Port
+from .abstract import RfPort
 from .ecalCorrectionSetBase import ECalCorrectionSet
 
 
 
 class ECalControl(ECalControlAbc):
 
-    def __init__(self, hal: EcalHalAbc):
+    def __init__(self, hal: ECalHalAbc):
         self.hal = hal
 
         self._numPoints = 0
@@ -33,8 +31,7 @@ class ECalControl(ECalControlAbc):
         self._frequencyList = []
         self._dataFolderPath = Path(__file__).parent.resolve().joinpath("data")
         
-        self.PORT_A = None
-        self.PORT_B = None
+        self._ports = []
 
         self._readECalInfo()
         self._readCorrectionSets()
@@ -48,8 +45,8 @@ class ECalControl(ECalControlAbc):
         return self._frequencyList
 
     def setGates(self, value: int) -> None:
-        self.hal._writeByte(EcalHalAbc._MUX_ADDR_GATES_1_8, value & 0x00ff)
-        self.hal._writeByte(EcalHalAbc._MUX_ADDR_GATES_9_16, (value & 0xff00) >> 8)
+        self.hal._writeByte(ECalHalAbc._MUX_ADDR_GATES_1_8, value & 0x00ff)
+        self.hal._writeByte(ECalHalAbc._MUX_ADDR_GATES_9_16, (value & 0xff00) >> 8)
 
     def isolate(self) -> None:
         self.setGates(0xffff)
@@ -98,8 +95,23 @@ class ECalControl(ECalControlAbc):
         self._numFrequencies = self.readValueFromFlash(ECalControl._EEPROM_ADDR_FREQ_NO,"H")
 
         tokens = re.split("([MF])",self.connectorType.split()[0])
-        self.PORT_A = Port("Port A", tokens[0], ConnectorGender.MALE if tokens[1] == "M" else ConnectorGender.FEMALE)
-        self.PORT_B = Port("Port B", tokens[2], ConnectorGender.MALE if tokens[3] == "M" else ConnectorGender.FEMALE)
+        self._ports.append(RfPort("Port A", tokens[0], ConnectorGender.MALE if tokens[1] == "M" else ConnectorGender.FEMALE, device=self))
+        self._ports.append(RfPort("Port B", tokens[2], ConnectorGender.MALE if tokens[3] == "M" else ConnectorGender.FEMALE, device=self))
+
+
+    @property
+    def ports(self) -> List[RfPort]:
+        return self._ports
+
+    @property
+    def port_A(self) -> RfPort:
+        try: return self._ports[0]
+        except: return None
+
+    @property
+    def port_B(self) -> RfPort:
+        try: return self._ports[1]
+        except: return None
 
     @property
     def model(self) -> str:

@@ -11,18 +11,48 @@ class CorrectionSetScope(Enum):
     THRU_AB = 3
     VERIFY_AB = 4
 
+class ECalPort(Enum):
+    A = CorrectionSetScope.PORT_A
+    B = CorrectionSetScope.PORT_B
+
 class ConnectorGender(Enum):
     MALE = 0
     FEMALE = 1
+    GENDERLESS = 2
 
-@dataclass
-class Port:
+    def __str__(self) -> str:
+        if self == ConnectorGender.MALE: return "male"
+        if self == ConnectorGender.FEMALE: return "female"
+        if self == ConnectorGender.GENDERLESS: return ""
+
+@dataclass(frozen=True)
+class RfPort:
     name: str
     connectorType: str
     gender: "ConnectorGender"
+    device: None
+
+    def __and__(self, other : 'RfPort') -> bool:
+        if not isinstance(other, RfPort): return NotImplemented
+
+        if other.connectorType != self.connectorType: return False
+        if (self.gender == ConnectorGender.GENDERLESS) & (other.gender == ConnectorGender.GENDERLESS): return True
+        if (self.gender == ConnectorGender.FEMALE) & (other.gender == ConnectorGender.MALE): return True
+        if (self.gender == ConnectorGender.MALE) & (other.gender == ConnectorGender.FEMALE): return True
+        return False
+    
+    def __str__(self) -> str:
+        elements : List[str] = []
+        if self.name != None & self.name != "": elements.append(self.name)
+        elements.append(self.connectorType)
+        if self.gender != ConnectorGender.GENDERLESS: elements.append(str(self.gender))
+        return " ".join(elements)
+        
+    def instanceOn(self, device) -> 'RfPort':
+        return RfPort(self.name, self.connectorType, self.gender, device)
 
 
-class EcalHalAbc(ABC):
+class ECalHalAbc(ABC):
 
     _MUX_ADDR_FLASH_ADDR_0_7 = 2
     _MUX_ADDR_FLASH_ADDR_8_15 = 3
@@ -65,7 +95,7 @@ class ECalControlAbc(ABC):
 
 
     @abstractmethod
-    def __init__(self, hal: EcalHalAbc) -> None:
+    def __init__(self, hal: ECalHalAbc) -> None:
         pass
 
     @property

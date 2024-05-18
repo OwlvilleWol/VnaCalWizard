@@ -1,10 +1,11 @@
-from .abstract import EcalHalAbc
+from .abstract import ECalHalAbc
 from .abstract import CorrectionSetScope
 from .ecalCorrectionSetSkrf import ECalCorrectionSetSk
 from .ecalControlBase import ECalControl
+from skrf import Frequency
 
 class ECalControlSk(ECalControl):
-    def __init__(self, hal: EcalHalAbc):
+    def __init__(self, hal: ECalHalAbc):
         super().__init__(hal)
 
 
@@ -18,3 +19,7 @@ class ECalControlSk(ECalControl):
     @property
     def correctionSets(self) -> dict[CorrectionSetScope, ECalCorrectionSetSk]:
         return self._correctionSets
+    
+    @property
+    def frequency(self) -> Frequency:
+        return Frequency.from_f(self._frequencyList)

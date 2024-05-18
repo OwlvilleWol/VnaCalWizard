@@ -2,18 +2,21 @@ import skrf as rf
 import skrf.vi.vna as skvna
 import skrf.vi.validators as skvalid
 import numpy as np
-import typing
+from typing import List,Any,Literal, Callable
 from enum import Enum
+from vnaCalWizard import CalableVna
+from . import HpglUi
+from pyvisa.resources import GPIBInstrument
+from time import sleep
 
-class HP8720C(skvna.VNA):
+class HP8720C(skvna.VNA, CalableVna, HpglUi):
 
     _scpi = False
     _supported_npoints = [3 ,11 , 32, 51, 101, 201, 401, 801, 1601]
 
-
     #List of error coefficient keys as used by the skrf 12term calibration dictionary,
     #in the order as returned/requested by the 8720C
-    _coefs_list_12term : typing.List[str] = [
+    _coefs_list_12term : List[str] = [
         'forward directivity',
         'forward source match',
         'forward reflection tracking',
@@ -28,7 +31,7 @@ class HP8720C(skvna.VNA):
         'reverse transmission tracking'
         ]
     
-    _coefs_list_3term: typing.List[str] = [
+    _coefs_list_3term: List[str] = [
         'directivity',
         'source match',
         'reflection tracking',
@@ -53,9 +56,38 @@ class HP8720C(skvna.VNA):
             self.setvalidator = skvalid.SetValidator(set)
             self.floatvalidator = skvalid.FloatValidator() 
            
-        def validate_input(self, arg) -> typing.Any:
+        def validate_input(self, arg) -> Any:
             arg = self.floatvalidator.validate_input(arg)
             return self.setvalidator.validate_input(arg)
+
+
+    def __init__(self, address: str, backend : str | Literal["@ivi", "@py"] ='@ivi', reset: bool = False) -> None:
+        super().__init__(address, backend)
+
+        self._resource.timeout = 2_000
+        assert '8720C' in self.id
+
+        self._resource.timeout = 60_000
+        self.query_delay = 1.
+
+        if reset:
+            self.reset()
+
+        self._hpglResource : GPIBInstrument = None
+        try:
+            res : GPIBInstrument = self._resource
+            hpglResourceName : str = res.resource_name.replace(str(res.primary_address) ,str(res.primary_address ^ 1))
+            self._hpglResource = res._resource_manager.open_resource(hpglResourceName, open_timeout=res.timeout)
+            self._hpglWrite("DF;RS;")
+        except Exception as e:
+            self._hpglResource = None
+
+
+    def __del__(self):
+        try:
+            self._hpglResource.close()
+        except:
+            pass
 
 
     id = skvna.VNA.command(
@@ -188,20 +220,6 @@ class HP8720C(skvna.VNA):
         doc="""Retrieve the value of the Event Status Register (ESR)""",
     )
 
-    def __init__(self, address: str, backend='@py', reset: bool = True) -> None:
-        super().__init__(address, backend)
-
-        self._resource.timeout = 2_000
-        assert '8720C' in self.id
-
-        self._resource.timeout = 60_000
-        self.query_delay = 1.
-
-        self.read_raw = self._resource.read_raw
-
-        if reset:
-            self.reset()
-
     @property
     def frequency(self) -> rf.Frequency:
         return rf.Frequency(
@@ -305,8 +323,7 @@ class HP8720C(skvna.VNA):
 
 
     @property
-    def calibration(self) -> rf.Calibration:
-        """The currently defined calibration as a :class:`skrf.calibration.calibration.Calibration`"""
+    def calibration(self) -> None | rf.Calibration:
         
         cm = self.cal_method
         cal_dict = {}
@@ -355,3 +372,96 @@ class HP8720C(skvna.VNA):
         self.write_values("INPUDATA", data, complex_values=True, header_fmt="hp", is_big_endian=True)        
 
 
+
+    def _hpglWrite(self, command : str) -> None:
+        try:
+            self._hpglResource.write(command)
+        except:
+            pass
+
+
+    def _hpglCls(self) -> None:
+        self._hpglWrite("AF;")
+
+    
+    def _hpglInstrumentScreenOn(self, on : bool = True) -> None:
+        self._hpglWrite("RS" if on else "CS") 
+
+    
+    def _hpglPrintLabel(self, text : str, x: int, y: int, pen : int = 1, textSize : tuple[int,int] = (16,20), align : Literal["left", "right", "center"] = "left"):  
+        if align == "right":
+            x = x - len(text)*textSize[0]*5
+        elif align == "center":
+            x = int(x - len(text)*textSize[0]*2.5)
+        text = text + chr(3)
+        self._hpglWrite(f"PU;SI.{textSize[0]},.{textSize[1]};SP{pen};PA {x},{y};PD;LB{text};PU;")
+
+    
+    def _hpglDrawLine(self, x1,y1,x2,y2 : int, pen : int = 1):
+        self._hpglWrite(f"SP{pen};PU;PA {x1},{y1};PD;PA {x2},{y2};PU;")
+
+
+    def _hpglPrintMenuItem(self, text : str, menuIndex : Literal[1,2,3,4,5,6,7,8]) -> None:
+
+        ymax = 3900
+        ymin = 50
+        yspac = 520
+        x = 5800
+        yloc = {1 : ymax, 2 : ymax-yspac, 3 : ymax-yspac*2, 4 : ymax-yspac*3, 5 : ymin+yspac*3 , 6 : ymin+yspac*2 , 7 : ymin+yspac*1, 8 : ymin}
+
+        self._hpglPrintLabel(text, x, yloc[menuIndex], 7, align="right")
+
+
+
+    def _waitForKeypress(self)-> int | None:
+
+        softkeys = {60: 1, 61: 2, 56: 3, 59: 4, 4: 5, 57: 6, 58: 7, 10: 8}
+
+        try:
+            self.write("CLES;")
+            while True:
+                esr : int = int(self.query("ESR?;"))
+                if (esr & 0b01000000) != 0:
+                    key = int(self.query("OUTPKEY;"))
+                    if (key in softkeys):
+                        return softkeys[key]
+                sleep(0.1)
+        except:
+            return None
+        
+    
+    @property
+    def operatorPrompt(self) -> None | Callable[[str, List[tuple[str, str, List[str] | None] | None]] ,str]:
+        if self._hpglResource == None:
+            return None
+        else:
+            return lambda prompt,options: self._operatorPrompt(prompt, options) 
+    
+
+    def _operatorPrompt(self, prompt : str, options : List[tuple[str, str, List[str] | None] | None]) -> str:
+        self.write("MENUOFF")
+        self._hpglPrintLabel(prompt, 2500, 3400, 7, align="center")
+
+        if len(options > 8):
+            raise Exception("VNA can only display 8 options.")
+
+        for i in range(len(options)):
+            option = options[i]
+            if option == None:
+                continue
+            else:
+                self._hpglPrintMenuItem(option[0], i+1) 
+        
+        while True:
+            keyPress = self._waitForKeypress()
+            if keyPress == None: 
+                self._hpglCls()
+                self._hpglInstrumentScreenOn(True)
+                return None
+            try:
+                selection = options[keyPress-1][1]
+                self._hpglCls()
+                self._hpglInstrumentScreenOn(True)
+                return selection
+            except:
+                continue

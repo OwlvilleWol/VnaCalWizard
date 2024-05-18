@@ -1,2 +1,2 @@
 from .calableVna import CalableVna
-from .calWizard import VnaCalWizard
+from .calWizard import VnaCalWizard, FrequencyEx

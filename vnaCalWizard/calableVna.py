@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-import numpy as np
 import skrf as rf
+from typing import Callable, List
 
 
 class CalableVna(ABC):
@@ -16,7 +16,7 @@ class CalableVna(ABC):
 
     @property
     @abstractmethod
-    def calibration(self) -> rf.Calibration:
+    def calibration(self) -> None | rf.Calibration:
         pass
 
     @calibration.setter
@@ -32,4 +32,9 @@ class CalableVna(ABC):
     @correction_on.setter
     @abstractmethod
     def correction_on(self, arg: bool):
+        pass
+
+    @property
+    @abstractmethod
+    def operatorPrompt(self) -> None | Callable[[str, List[tuple[str, str, List[str] | None] | None]] ,str]:
         pass

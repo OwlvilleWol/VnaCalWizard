@@ -1,12 +1,9 @@
 import math
 
-from .abstract import EcalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
 from .abstract import ECalStandardAbc
-from .abstract import ConnectorGender
 from .abstract import CorrectionSetScope
-from .abstract import Port
 from .ecalStandardBase import ECalStandard
 
 

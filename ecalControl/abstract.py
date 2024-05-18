@@ -20,11 +20,33 @@ class ConnectorGender(Enum):
     FEMALE = 1
     GENDERLESS = 2
 
-@dataclass
+    def __str__(self) -> str:
+        if self == ConnectorGender.MALE: return "male"
+        if self == ConnectorGender.FEMALE: return "female"
+        if self == ConnectorGender.GENDERLESS: return ""
+
+@dataclass(frozen=True)
 class Port:
     name: str
     connectorType: str
     gender: "ConnectorGender"
+
+    def __and__(self, other : 'Port') -> bool:
+        if not isinstance(other, Port): return NotImplemented
+
+        if other.connectorType != self.connectorType: return False
+        if (self.gender == ConnectorGender.GENDERLESS) & (other.gender == ConnectorGender.GENDERLESS): return True
+        if (self.gender == ConnectorGender.FEMALE) & (other.gender == ConnectorGender.MALE): return True
+        if (self.gender == ConnectorGender.MALE) & (other.gender == ConnectorGender.FEMALE): return True
+        return False
+    
+    def __str__(self) -> str:
+        elements : List[str] = []
+        if self.name != None & self.name != "": elements.append(self.name)
+        elements.append(self.connectorType)
+        if self.gender != ConnectorGender.GENDERLESS: elements.append(str(self.gender))
+        return " ".join(elements)
+        
 
 
 class ECalHalAbc(ABC):

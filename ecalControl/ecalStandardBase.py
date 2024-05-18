@@ -4,7 +4,6 @@ from .abstract import ECalCorrectionSetAbc
 from .abstract import ECalStandardAbc
 from .abstract import ConnectorGender
 from .abstract import CorrectionSetScope
-from .abstract import Port
 
 class ECalStandard(ECalStandardAbc):
     '''

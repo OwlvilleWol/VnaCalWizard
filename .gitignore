@@ -1,3 +1,4 @@
 **/.vscode
 /workenv.yml
 **/__pycache__/
+/.VSCodeCounter/

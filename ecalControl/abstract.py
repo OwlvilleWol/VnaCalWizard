@@ -26,13 +26,14 @@ class ConnectorGender(Enum):
         if self == ConnectorGender.GENDERLESS: return ""
 
 @dataclass(frozen=True)
-class Port:
+class RfPort:
     name: str
     connectorType: str
     gender: "ConnectorGender"
+    device: None
 
-    def __and__(self, other : 'Port') -> bool:
-        if not isinstance(other, Port): return NotImplemented
+    def __and__(self, other : 'RfPort') -> bool:
+        if not isinstance(other, RfPort): return NotImplemented
 
         if other.connectorType != self.connectorType: return False
         if (self.gender == ConnectorGender.GENDERLESS) & (other.gender == ConnectorGender.GENDERLESS): return True
@@ -47,6 +48,8 @@ class Port:
         if self.gender != ConnectorGender.GENDERLESS: elements.append(str(self.gender))
         return " ".join(elements)
         
+    def instanceOn(self, device) -> 'RfPort':
+        return RfPort(self.name, self.connectorType, self.gender, device)
 
 
 class ECalHalAbc(ABC):

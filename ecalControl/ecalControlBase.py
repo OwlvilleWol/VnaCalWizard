@@ -1,18 +1,16 @@
 
-import time
 import struct
-import random
-from enum import Enum
 from dataclasses import dataclass
 import re
 from pathlib import Path
+from typing import List
 
 from .abstract import ECalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
 from .abstract import ConnectorGender
 from .abstract import CorrectionSetScope
-from .abstract import Port
+from .abstract import RfPort
 from .ecalCorrectionSetBase import ECalCorrectionSet
 
 
@@ -33,8 +31,7 @@ class ECalControl(ECalControlAbc):
         self._frequencyList = []
         self._dataFolderPath = Path(__file__).parent.resolve().joinpath("data")
         
-        self.PORT_A = None
-        self.PORT_B = None
+        self._ports = []
 
         self._readECalInfo()
         self._readCorrectionSets()
@@ -98,8 +95,23 @@ class ECalControl(ECalControlAbc):
         self._numFrequencies = self.readValueFromFlash(ECalControl._EEPROM_ADDR_FREQ_NO,"H")
 
         tokens = re.split("([MF])",self.connectorType.split()[0])
-        self.PORT_A = Port("Port A", tokens[0], ConnectorGender.MALE if tokens[1] == "M" else ConnectorGender.FEMALE)
-        self.PORT_B = Port("Port B", tokens[2], ConnectorGender.MALE if tokens[3] == "M" else ConnectorGender.FEMALE)
+        self._ports.append(RfPort("Port A", tokens[0], ConnectorGender.MALE if tokens[1] == "M" else ConnectorGender.FEMALE, device=self))
+        self._ports.append(RfPort("Port B", tokens[2], ConnectorGender.MALE if tokens[3] == "M" else ConnectorGender.FEMALE, device=self))
+
+
+    @property
+    def ports(self) -> List[RfPort]:
+        return self._ports
+
+    @property
+    def port_A(self) -> RfPort:
+        try: return self._ports[0]
+        except: return None
+
+    @property
+    def port_B(self) -> RfPort:
+        try: return self._ports[1]
+        except: return None
 
     @property
     def model(self) -> str:

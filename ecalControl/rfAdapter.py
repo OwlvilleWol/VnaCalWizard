@@ -1,6 +1,6 @@
 from skrf import Network, Frequency, overlap
 from typing import overload, List, Tuple
-from . import Port, ConnectorGender
+from . import RfPort, ConnectorGender
 import re
 from pathlib import Path
 import numpy as np
@@ -11,11 +11,11 @@ class UnmateableRfConnectionException(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
-        self._port1 : Port = None
-        self._port2 : Port = None
+        self._port1 : RfPort = None
+        self._port2 : RfPort = None
 
         if len(args) >= 2:
-            if isinstance(args[0], Port) & isinstance(args[1], Port):
+            if isinstance(args[0], RfPort) & isinstance(args[1], RfPort):
                 self._port1 = args[0]
                 self._port2 = args[1]
 
@@ -36,19 +36,19 @@ class RfAdapter:
     #### E.g. Adapter 35M to 35F Model:SM3310 SerNo:0001.s2p
 
     @overload
-    def __init__(self, port1 : Port, port2 : Port, data: Network, model: str = None, serNo: str = None):
+    def __init__(self, port1 : RfPort, port2 : RfPort, data: Network, model: str = None, serNo: str = None):
         pass
 
     @overload
     def __init__(self, filePath: str):
         pass
 
-    def __init__(self, filePath: str = None, port1 : Port = None, port2 : Port = None, data: Network = None, model : str = None,  serNo: str = None) -> None:
+    def __init__(self, filePath: str = None, port1 : RfPort = None, port2 : RfPort = None, data: Network = None, model : str = None,  serNo: str = None) -> None:
         
         if data != None:
             self._data = data
-            self._leftPort = p1
-            self._rightPort = p2
+            self._leftPort = port1.instanceOn(self)
+            self._rightPort = port2.instanceOn(self)
             self._sn = sn
             self._model = model
 
@@ -56,8 +56,8 @@ class RfAdapter:
             try:
                 p : Path = Path(filePath)
                 m = re.match("Adapter ((?:[^MF\s]|(?:[MF](?!\s)))+)([MF]?) to ((?:[^MF\s]|(?:[MF](?!\s)))+)([MF]?)(?: Model:(\S+))?(?: SN:(\S+))?",p.stem)
-                p1 = Port("port1", m[1], ConnectorGender.MALE if m[2] == "M" else ConnectorGender.FEMALE if m[2] == "F" else ConnectorGender.GENDERLESS)
-                p2 = Port("port1", m[3], ConnectorGender.MALE if m[4] == "M" else ConnectorGender.FEMALE if m[4] == "F" else ConnectorGender.GENDERLESS)
+                p1 = RfPort("port1", m[1], ConnectorGender.MALE if m[2] == "M" else ConnectorGender.FEMALE if m[2] == "F" else ConnectorGender.GENDERLESS, device=self)
+                p2 = RfPort("port1", m[3], ConnectorGender.MALE if m[4] == "M" else ConnectorGender.FEMALE if m[4] == "F" else ConnectorGender.GENDERLESS, device=self)
                 model = m[5]
                 sn = m[6]
 
@@ -113,14 +113,14 @@ class RfAdapter:
             raise Exception("No network data loaded for RF Adapter.")
 
     @property
-    def leftPort(self) -> Port:
+    def leftPort(self) -> RfPort:
         if self._isFlipped:
             return self._rightPort
         else:
             return self._leftPort
 
     @property
-    def rightPort(self) -> Port:
+    def rightPort(self) -> RfPort:
         if self._isFlipped:
             return self._leftPort
         else:
@@ -170,7 +170,7 @@ class RfAdapter:
                         serNo="+".join([left._sn, right._sn]))
 
 
-    def cascadePort(adapter: 'RfAdapter', port: Port, ignoreMate : bool = False) -> 'RfAdapter':
+    def cascadePort(adapter: 'RfAdapter', port: RfPort, ignoreMate : bool = False) -> 'RfAdapter':
         
         if not ignoreMate:
             if not (adapter.rightPort & port):
@@ -179,7 +179,7 @@ class RfAdapter:
         return adapter.leftPort 
 
 
-    def __pow__(self, other: 'RfAdapter' | Port) -> 'RfAdapter' | Port:
+    def __pow__(self, other: 'RfAdapter' | RfPort) -> 'RfAdapter' | RfPort:
 
         if isinstance(other, RfAdapter):
             try:
@@ -188,7 +188,7 @@ class RfAdapter:
                 if self.auto:
                     return RfAdapter.cascadeAdapters(self.flipped, other)
                 else: raise e
-        elif isinstance(other, Port):       
+        elif isinstance(other, RfPort):       
             try:  
                 return RfAdapter.cascadePort(self, other)
             except UnmateableRfConnectionException as e:
@@ -199,7 +199,7 @@ class RfAdapter:
             return NotImplemented
 
 
-    def __rpow__(self, other: 'RfAdapter' | Port) -> 'RfAdapter' | Port:
+    def __rpow__(self, other: 'RfAdapter' | RfPort) -> 'RfAdapter' | RfPort:
 
         if isinstance(other, RfAdapter):
             try:
@@ -208,7 +208,7 @@ class RfAdapter:
                 if self.auto:
                     return RfAdapter.cascadeAdapters(other, self.flipped)
                 else: raise e
-        elif isinstance(other, Port):       
+        elif isinstance(other, RfPort):       
             try:  
                 return RfAdapter.cascadePort(self.flipped, other)
             except UnmateableRfConnectionException as e:
@@ -219,13 +219,13 @@ class RfAdapter:
             return NotImplemented
 
 
-    def __and__(self, other: 'RfAdapter' | Port) -> bool:
+    def __and__(self, other: 'RfAdapter' | RfPort) -> bool:
 
         if isinstance(other, RfAdapter):
             if self.rightPort & other.leftPort: return True
             elif self.auto & (self.leftPort & other.leftPort): return True
             else: return False
-        elif isinstance(other, Port):
+        elif isinstance(other, RfPort):
             if self.rightPort & other: return True
             elif self.auto & (self.rightPort & other): return True
             else: return False
@@ -233,13 +233,13 @@ class RfAdapter:
             return NotImplemented
         
 
-    def __rand__(self, other: 'RfAdapter' | Port) -> bool:
+    def __rand__(self, other: 'RfAdapter' | RfPort) -> bool:
 
         if isinstance(other, RfAdapter):
             if other.rightPort & self.leftPort: return True
             elif self.auto & (other.rightPort & self.rightPort): return True
             else: return False
-        elif isinstance(other, Port):
+        elif isinstance(other, RfPort):
             if other & self.leftPort: return True
             elif self.auto & (other & self.rightPort): return True
             else: return False
@@ -289,7 +289,7 @@ class RfAdapter:
         return adapterList
     
 
-    def dummy(port1: Port, port2: Port, freq: Frequency = None) -> 'RfAdapter':
+    def dummy(port1: RfPort, port2: RfPort, freq: Frequency = None) -> 'RfAdapter':
         '''Creates an ideal adapter between the given Ports at DC-100GHz'''
     
         if freq == None:

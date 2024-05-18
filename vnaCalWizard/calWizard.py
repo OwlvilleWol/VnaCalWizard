@@ -2,7 +2,7 @@ from . import CalableVna
 from ecalControl import ECalControlSk
 from ecalControl import ECalStandardSk
 from ecalControl import CorrectionSetScope as scope
-from ecalControl import ECalPort, Port
+from ecalControl import ECalPort, RfPort
 import skrf as rf
 from skrf import Network
 from skrf.frequency import Frequency 
@@ -188,7 +188,7 @@ class VnaCalWizard():
 
     def __init__(self, 
                  vna : CalableVna,
-                 vnaPorts : dict[int, Port],
+                 vnaPorts : dict[int, RfPort],
                  ecals : List[ECalControlSk],
                  adapters : List[RfAdapter] = None, 
                  operatorPrompt : Callable = None) -> None:
@@ -529,9 +529,20 @@ class VnaCalWizard():
 
     def calibrateOnePort(self, vnaPort: int) -> None:
 
-
-
         calibrationFreq : FrequencyEx = FrequencyEx.toEx(self._vna.frequency)
+
+        possibleMates : List[List[RfAdapter | RfPort]] = []
+        #find mateable ECals and adapters
+        for ecal in self._ecals:
+            for p in ecal.ports:
+                if self._vnaPorts[vnaPort] & p:
+                    possibleMates.append([p])
+                else:
+                    for adapter in self._adapters:
+                        if self._vnaPorts[vnaPort] & adapter.auto & p:
+                            possibleMates.append([adapter.auto, p])
+
+        #TBD
 
         ecalFreq : tuple[FrequencyEx, FrequencyEx] = [FrequencyEx.empty(), FrequencyEx.empty()]
 

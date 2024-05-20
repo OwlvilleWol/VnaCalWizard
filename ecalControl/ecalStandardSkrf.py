@@ -9,7 +9,6 @@ from .abstract import ECalCorrectionSetAbc
 class ECalStandardSk(ECalStandard):
     '''
     Represents a single one- or multi-port calibration standard in the ECal
-    Extended with scikit.rf functionality for more convenient handling of standard characterization data as Network object
     '''
         
     def __init__(self, set: "ECalCorrectionSetAbc", id: int, index: int) -> None:

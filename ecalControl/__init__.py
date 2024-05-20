@@ -3,7 +3,6 @@ from .ecalHalBase import ECalHal
 from .ecalControlBase import ECalControl
 from .ecalCorrectionSetBase import ECalCorrectionSet
 from .ecalStandardBase import ECalStandard
-from .rfAdapter import RfAdapter
 
 
 try:
@@ -11,6 +10,7 @@ try:
     from .ecalControlSkrf import ECalControlSk
     from .ecalCorrectionSetSkrf import ECalCorrectionSetSk
     from .ecalStandardSkrf import ECalStandardSk
+    from rfUtils import *
 except:
     pass
 

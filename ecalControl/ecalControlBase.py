@@ -1,17 +1,13 @@
 
 import struct
-from dataclasses import dataclass
-import re
-from pathlib import Path
-from typing import List
 
+from pathlib import Path
 from .abstract import ECalHalAbc
 from .abstract import ECalControlAbc
 from .abstract import ECalCorrectionSetAbc
-from .abstract import ConnectorGender
 from .abstract import CorrectionSetScope
-from .abstract import RfPort
 from .ecalCorrectionSetBase import ECalCorrectionSet
+from typing import List, Any
 
 
 
@@ -30,8 +26,6 @@ class ECalControl(ECalControlAbc):
         self._correctionSets = dict()
         self._frequencyList = []
         self._dataFolderPath = Path(__file__).parent.resolve().joinpath("data")
-        
-        self._ports = []
 
         self._readECalInfo()
         self._readCorrectionSets()
@@ -51,13 +45,13 @@ class ECalControl(ECalControlAbc):
     def isolate(self) -> None:
         self.setGates(0xffff)
 
-    def _readCorrectionSets(self):
-        self._correctionSets.update({CorrectionSetScope.PORT_A, ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET1)})
-        self._correctionSets.update({CorrectionSetScope.PORT_B, ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET2)})
-        self._correctionSets.update({CorrectionSetScope.THRU_AB, ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET3)})
-        self._correctionSets.update({CorrectionSetScope.VERIFY_AB, ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET4)})
+    def _readCorrectionSets(self) -> None:
+        self._correctionSets[CorrectionSetScope.PORT_A] = ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET1)
+        self._correctionSets[CorrectionSetScope.PORT_B] = ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET2)
+        self._correctionSets[CorrectionSetScope.THRU_AB] = ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET3)
+        self._correctionSets[CorrectionSetScope.VERIFY_AB] = ECalCorrectionSet(self, ECalControl._EEPROM_ADDR_CORRSET4)
 
-    def readValueFromFlash(self, addr, format = "c"):
+    def readValueFromFlash(self, addr, format = "c") -> Any:
         valueBytes = bytes()
         noBytesPerValue = struct.calcsize(format)
 
@@ -65,7 +59,7 @@ class ECalControl(ECalControlAbc):
             valueBytes += bytes([self.hal._readByteFromFlash(addr + j)])
         return struct.unpack(format, valueBytes)[0]
 
-    def readStringFromFlash(self, addr, maxlen = 255):        
+    def readStringFromFlash(self, addr, maxlen = 255) -> str:        
         readBytes = bytes()
         for j in range(maxlen):
             readInt = self.hal._readByteFromFlash(addr + j)
@@ -76,7 +70,7 @@ class ECalControl(ECalControlAbc):
         except:
             return ""
 
-    def readArrayFromFlash(self, addr, len, format = "i"):
+    def readArrayFromFlash(self, addr, len, format = "i") -> List[Any]:
 
         valueList = []
         noBytesPerValue = struct.calcsize(format)
@@ -85,7 +79,7 @@ class ECalControl(ECalControlAbc):
         return valueList
     
 
-    def _readECalInfo(self):
+    def _readECalInfo(self) -> None:
         self._numPoints = self.readValueFromFlash(ECalControl._EEPROM_ADDR_NOPOINTS,"H")
         self._warmupTime = self.readValueFromFlash(ECalControl._EEPROM_ADDR_WARMUP,"H")
         self._model = self.readStringFromFlash(ECalControl._EEPROM_ADDR_MODELNO, maxlen = 37)
@@ -94,24 +88,6 @@ class ECalControl(ECalControlAbc):
         self._lastCalibration = self.readStringFromFlash(ECalControl._EEPROM_ADDR_LASTCERT, maxlen = 33)
         self._numFrequencies = self.readValueFromFlash(ECalControl._EEPROM_ADDR_FREQ_NO,"H")
 
-        tokens = re.split("([MF])",self.connectorType.split()[0])
-        self._ports.append(RfPort("Port A", tokens[0], ConnectorGender.MALE if tokens[1] == "M" else ConnectorGender.FEMALE, device=self))
-        self._ports.append(RfPort("Port B", tokens[2], ConnectorGender.MALE if tokens[3] == "M" else ConnectorGender.FEMALE, device=self))
-
-
-    @property
-    def ports(self) -> List[RfPort]:
-        return self._ports
-
-    @property
-    def port_A(self) -> RfPort:
-        try: return self._ports[0]
-        except: return None
-
-    @property
-    def port_B(self) -> RfPort:
-        try: return self._ports[1]
-        except: return None
 
     @property
     def model(self) -> str:
